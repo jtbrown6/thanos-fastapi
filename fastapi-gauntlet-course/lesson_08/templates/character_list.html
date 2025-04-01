@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Link to the same static CSS file -->
+    <link href="{{ request.url_for('static', path='/style.css') }}" rel="stylesheet">
+    <title>{{ page_title }} - FastAPI Gauntlet</title>
+</head>
+<body>
+    <div class="container">
+        <h1>{{ heading }}</h1>
+
+        {% if characters %}
+            <ul>
+                <!-- Loop through the characters dictionary passed from Python -->
+                {% for char_id, char_info in characters.items() %}
+                    <li>
+                        ID {{ char_id }}: <strong>{{ char_info.name }}</strong>
+                        {% if char_info.affiliation %}
+                            (Affiliation: {{ char_info.affiliation }})
+                        {% else %}
+                            (Affiliation: Unknown)
+                        {% endif %}
+                        - Power Level: {{ char_info.power_level }}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No characters found in the database. Add some via the <a href="/docs">API documentation</a> (POST /characters).</p>
+        {% endif %}
+
+        <p><a href="/home">Back to Home</a></p>
+
+    </div>
+</body>
+</html>

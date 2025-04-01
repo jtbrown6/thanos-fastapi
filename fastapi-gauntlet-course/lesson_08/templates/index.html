@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Link to our static CSS file using url_for -->
+    <!-- request.url_for generates the correct path to the 'static' mount point -->
+    <link href="{{ request.url_for('static', path='/style.css') }}" rel="stylesheet">
+    <!-- Use data passed from Python for the title -->
+    <title>{{ page_title }} - FastAPI Gauntlet</title>
+</head>
+<body>
+    <div class="container">
+        <!-- Display the main heading passed from Python -->
+        <h1>{{ heading }}</h1>
+        
+        <p>Welcome to the Knowhere Data Hub, the central repository for tracking the Infinity Stones and associated entities.</p>
+        
+        <!-- Example of using data passed in a dictionary -->
+        <h2>Current Status:</h2>
+        <ul>
+            <li>Stones Acquired: {{ status_data.stones_acquired }} / 6</li>
+            <li>Quest Status: {{ status_data.status }}</li>
+        </ul>
+
+        <!-- Example of looping through a dictionary passed from Python -->
+        <h2>Known Stones:</h2>
+        <ul>
+            {% for stone_id, stone_info in stones.items() %}
+                <li>
+                    ID {{ stone_id }}: <strong>{{ stone_info.name }}</strong> ({{ stone_info.color }})
+                    <br>
+                    Location: {{ stone_info.location }}
+                    <!-- Stretch Goal: Link to stone details page -->
+                    <!-- Uses url_for with the 'name' given to the @app.get decorator -->
+                    (<a href="{{ request.url_for('get_stone_details', stone_id=stone_id) }}">View API Details</a>)
+                </li>
+            {% else %}
+                <li>No stones found in the database.</li>
+            {% endfor %}
+        </ul>
+
+        <p>
+            <a href="/characters-view">View Character Database</a> | 
+            <a href="/docs">Explore the Full API Docs</a>
+        </p>
+    </div>
+</body>
+</html>
