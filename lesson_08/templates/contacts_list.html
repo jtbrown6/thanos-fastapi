@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Link to the same static CSS file -->
+    <link href="{{ request.url_for('static', path='/style.css') }}" rel="stylesheet">
+    <!-- Use updated page title -->
+    <title>{{ page_title }} - Batcomputer Interface</title>
+</head>
+<body>
+    <div class="container">
+        <!-- Use updated heading -->
+        <h1>{{ heading }}</h1>
+
+        <!-- Check if contacts dictionary is not empty -->
+        {% if contacts %}
+            <ul>
+                <!-- Loop through the contacts dictionary passed from Python -->
+                {% for contact_id, contact_info in contacts.items() %}
+                    <li>
+                        <!-- Display contact info -->
+                        ID {{ contact_id }}: <strong>{{ contact_info.name }}</strong>
+                        {% if contact_info.affiliation %}
+                            (Affiliation: {{ contact_info.affiliation }})
+                        {% else %}
+                            (Affiliation: Unknown)
+                        {% endif %}
+                        <!-- Display trust level instead of power level -->
+                        - Trust Level: {{ contact_info.trust_level }} / 5
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <!-- Updated empty message -->
+            <p>No contacts found in the database. Add some via the <a href="/docs">API documentation</a> (POST /contacts).</p>
+        {% endif %}
+
+        <!-- Update link back to the main display page -->
+        <p><a href="/batcave-display">Back to Main Display</a></p>
+
+    </div>
+</body>
+</html>

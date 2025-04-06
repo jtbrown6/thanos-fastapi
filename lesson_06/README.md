@@ -1,274 +1,247 @@
-# Lesson 6: The Mind Stone's Influence - Dependency Injection
+# Lesson 6: Batcomputer Protocols - Dependency Injection
 
-**Recap:** On Vormir in Lesson 5, we learned the necessity of sacrifice (`HTTPException`) to handle errors gracefully when application logic fails (like a 404 Not Found).
+**Recap:** In Lesson 5, we implemented Contingency Plans (`HTTPException`) to handle errors gracefully, returning appropriate status codes like `404 Not Found` or `400 Bad Request` when things go wrong (e.g., gadget not found, duplicate contact).
 
-Now, we consider the Mind Stone. It grants its wielder great intelligence, control, and the ability to influence others. In FastAPI, the **Dependency Injection (DI)** system acts similarly: it allows us to define reusable components ("dependencies") that provide data, connections, or perform actions (like shared knowledge or tools) and then *inject* them into our endpoint functions as needed. This promotes cleaner, more reusable, and more testable code.
+Now, we establish **Batcomputer Protocols**. Complex systems like the Batcomputer rely on shared logic and resources (authentication, database connections, common parameters). Instead of repeating this code in every endpoint, we can define reusable components called **Dependencies** and have FastAPI automatically "inject" them where needed. This is **Dependency Injection (DI)**.
 
 **Core Concepts:**
 
-1.  **What is Dependency Injection?** Sharing logic and resources.
-2.  **Why Use DI?** Code reuse, separation of concerns, easier testing.
-3.  **Creating Dependencies:** Simple functions that provide a value or resource.
-4.  **Using `Depends`:** Declaring dependencies in endpoint function signatures.
-5.  **Dependency Execution:** How FastAPI runs dependencies.
-6.  **Dependencies with `yield`:** Managing resources like database connections.
-7.  **Dependencies Calling Other Dependencies:** Building complex dependency chains.
+1.  **Code Reusability:** Avoiding repetition of common logic (e.g., pagination parameters, user authentication).
+2.  **Separation of Concerns:** Keeping endpoint logic focused on its specific task, delegating common tasks to dependencies.
+3.  **`Depends`:** The FastAPI function used to declare a dependency in an endpoint's signature.
+4.  **Dependencies as Functions:** Defining dependencies as simple `async def` or `def` functions.
+5.  **Dependencies with `yield`:** Creating dependencies that manage resources (like database connections) with setup and teardown logic.
+6.  **Dependencies on Dependencies:** Building complex logic by having dependencies that rely on other dependencies (e.g., verifying a user *after* getting their authentication token).
+7.  **Sharing Dependencies:** Using the same dependency across multiple endpoints.
+8.  **Type Hinting Dependencies:** Using `typing.Annotated` for cleaner dependency declaration.
 
 ---
 
-## 1. What is Dependency Injection?
+## 1. The Problem: Repetitive Code
 
-Imagine several of your endpoints need access to the same information (like the current user's permissions) or need to perform the same setup task (like getting a database connection). Instead of repeating that logic in every single endpoint function, you can define it *once* in a separate function – a **dependency**.
+Imagine multiple endpoints need pagination (`skip`, `limit` query parameters) or need to verify an API key from a header. Copying and pasting that logic into every endpoint is inefficient and error-prone.
 
-Then, you tell FastAPI that your endpoint function *depends* on this other function. FastAPI will automatically run the dependency function first and pass its result (the "injected" value) into your endpoint function as an argument.
+## 2. The Solution: Dependency Injection with `Depends`
 
-It's like the Mind Stone granting specific knowledge (the dependency's result) to an individual (the endpoint function) exactly when they need it.
-
-## 2. Why Use Dependency Injection? The Benefits
-
-*   **Code Reuse:** Write common logic once (e.g., getting the current user, validating an API key, connecting to a database) and reuse it across multiple endpoints just by declaring the dependency.
-*   **Separation of Concerns:** Endpoint functions can focus on their core task, delegating tasks like authentication or data access to dependencies. This makes code cleaner and easier to understand.
-*   **Easier Testing:** You can easily provide "mock" or fake dependencies during testing, allowing you to test endpoint logic in isolation without needing a real database or external service. (We'll cover testing more later).
-*   **Editor Support:** You get full type hinting and autocompletion for the values provided by dependencies.
-*   **Automatic Documentation:** Dependencies can be integrated into FastAPI's automatic documentation.
-
-## 3. Creating a Simple Dependency
-
-A dependency is often just a regular Python function (it can be `def` or `async def`). Its purpose is to return a value or yield a resource that the endpoint needs.
-
-**Example:** Let's create a dependency that provides some common query parameters for pagination.
-
-```python
-# main.py (in lesson_06)
-
-# --- Dependency Function ---
-async def common_parameters(skip: int = 0, limit: int = 100):
-    """
-    Provides common query parameters for pagination.
-    This function itself receives query parameters from the request.
-    """
-    # This dependency simply returns the validated parameters as a dictionary.
-    return {"skip": skip, "limit": limit}
-```
-
-This function `common_parameters` takes optional `skip` and `limit` query parameters (just like an endpoint function could!) and returns them in a dictionary.
-
-## 4. Using `Depends` to Inject Dependencies
-
-How do we tell an endpoint function that it needs the result of `common_parameters`? We use `Depends` from `fastapi`.
+FastAPI's DI system lets you define this logic *once* in a separate function (a dependency) and then declare that your endpoint *depends* on it. FastAPI runs the dependency function for each request to that endpoint and provides ("injects") the result into your endpoint function.
 
 **Action:**
 
-*   Create the directory for this lesson: `mkdir fastapi-gauntlet-course/lesson_06`
-*   Copy `main.py` from `lesson_05` into `lesson_06`: `cp lesson_05/main.py lesson_06/`
-*   Open `fastapi-gauntlet-course/lesson_06/main.py`.
-*   Import `Depends` from `fastapi`.
-*   Add the `common_parameters` dependency function shown above.
-*   Add a new endpoint that uses this dependency:
+*   Create `lesson_06` directory and copy `lesson_05/main.py` into it.
+*   Open `lesson_06/main.py`.
+*   Import `Depends`, `Header` from `fastapi` and `Annotated` from `typing`.
+
+## 3. Simple Dependency: Common Query Parameters
+
+Let's create a dependency to handle common pagination parameters.
+
+**Action:** Define the `common_parameters` function and the `CommonsDep` type alias:
 
 ```python
 # main.py (in lesson_06)
-from fastapi import FastAPI, HTTPException, Depends # Import Depends
-import httpx
-from pydantic import BaseModel
+from fastapi import Depends # Import Depends
+from typing import Annotated
 
-# ... (keep app instance, models, known_stones_db, characters_db) ...
+# ... other imports, models, app instance ...
 
-# --- Dependency Function ---
+# --- Dependencies for Lesson 6 ---
+
+# Simple dependency providing common query parameters
 async def common_parameters(skip: int = 0, limit: int = 100):
     """ Provides common query parameters for pagination. """
+    # This function looks like an endpoint function, taking query parameters.
+    print(f"Dependency 'common_parameters' called with skip={skip}, limit={limit}")
+    # The dictionary it returns will be injected into endpoints that depend on it.
     return {"skip": skip, "limit": limit}
 
-# ... (keep previous endpoints) ...
+# Type alias using Annotated for cleaner endpoint signatures
+# This says: CommonsDep is a dict, and its value comes from Depends(common_parameters)
+CommonsDep = Annotated[dict, Depends(common_parameters)]
 
-# --- New Endpoint Using Dependency Injection ---
+# ... (rest of the code)
+```
+
+Now, use this dependency in an endpoint:
+
+**Action:** Add the `/items/` endpoint:
+
+```python
+# main.py (in lesson_06)
+
+# ... (dependencies defined above) ...
+
+# --- New Endpoints for Lesson 6 ---
+
 @app.get("/items/")
-# 'commons: dict = Depends(common_parameters)' tells FastAPI:
-# 1. Before running 'read_items', run 'common_parameters'.
-# 2. 'common_parameters' might need query parameters 'skip' and 'limit' from the request.
-# 3. Take the dictionary returned by 'common_parameters' and pass it as the 'commons' argument.
-async def read_items(commons: dict = Depends(common_parameters)):
-    """
-    Reads a list of hypothetical items, using common pagination parameters
-    provided by the 'common_parameters' dependency.
-    """
-    print(f"Received common parameters via DI: {commons}")
-    
-    # In a real app, you'd use commons['skip'] and commons['limit']
-    # in your database query.
-    # Example: items = db.query(Item).offset(commons['skip']).limit(commons['limit']).all()
-    
-    # Simulate returning items based on pagination
-    all_item_ids = list(range(1000)) # Simulate 1000 items
+async def read_items(commons: CommonsDep): # Use the dependency via the type alias
+    """ Reads generic items using common pagination parameters from DI. """
+    # FastAPI sees 'Depends(common_parameters)' in CommonsDep.
+    # It calls common_parameters(skip=..., limit=...) using query params from the request.
+    # The returned dictionary {"skip": ..., "limit": ...} is passed as the 'commons' argument.
+    print(f"Endpoint '/items/' using common pagination: {commons}")
+
+    all_item_ids = [f"item_{i}" for i in range(1, 501)]
     start = commons['skip']
     end = start + commons['limit']
     paginated_items = all_item_ids[start:end]
-    
     return {"skip": commons['skip'], "limit": commons['limit'], "items": paginated_items}
 
-# Let's add another endpoint using the same dependency!
-@app.get("/users/")
-async def read_users(commons: dict = Depends(common_parameters)):
-    """
-    Reads a list of hypothetical users, also using the common pagination dependency.
-    Demonstrates reusability.
-    """
-    print(f"Received common parameters via DI: {commons}")
-    # Simulate returning users
-    all_user_ids = ["User_A", "User_B", "User_C", "User_D", "User_E"] # Simulate fewer users
+# You can reuse the SAME dependency in another endpoint:
+@app.get("/list-contacts/")
+async def list_contacts(commons: CommonsDep): # Reuse CommonsDep
+    """ Lists contacts using common pagination parameters from DI. """
+    print(f"Endpoint '/list-contacts/' using common pagination: {commons}")
+    # ... (logic to fetch and paginate contacts using commons['skip'] and commons['limit']) ...
+    all_contact_ids = list(contacts_db.keys()) # Assuming contacts_db exists
     start = commons['skip']
     end = start + commons['limit']
-    paginated_users = all_user_ids[start:end]
-    
-    return {"skip": commons['skip'], "limit": commons['limit'], "users": paginated_users}
+    paginated_contact_ids = all_contact_ids[start:end]
+    paginated_contacts = [contacts_db.get(cid, {}) for cid in paginated_contact_ids]
+    return {"skip": commons['skip'], "limit": commons['limit'], "contacts": paginated_contacts}
 
-# ... (keep other endpoints) ...
 ```
+FastAPI automatically handles calling `common_parameters` and passing its result to `read_items` and `list_contacts`.
 
-**Explanation:**
+## 4. Dependencies with `yield`: Resource Management
 
-1.  We import `Depends`.
-2.  We define `common_parameters` which takes `skip` and `limit` (these will be populated from the request's query parameters, just as if they were defined directly on the endpoint).
-3.  In `read_items` and `read_users`, the argument `commons: dict = Depends(common_parameters)` declares the dependency.
-    *   `Depends(common_parameters)` tells FastAPI to call `common_parameters`.
-    *   `commons: dict` receives the *result* returned by `common_parameters`.
-4.  Now, both `/items/` and `/users/` accept `skip` and `limit` query parameters, but the logic for handling them is centralized in `common_parameters`.
+Dependencies are perfect for managing resources that need setup and teardown, like database connections. A dependency function using `yield` can perform setup before the `yield` and teardown after.
 
-**Action:** Run `uvicorn main:app --reload` and test:
-
-*   `/docs`: See how `/items/` and `/users/` now both list `skip` and `limit` as query parameters, inherited from the dependency.
-*   `/items/` (uses defaults `skip=0`, `limit=100`)
-*   `/items/?skip=10&limit=5`
-*   `/users/` (uses defaults)
-*   `/users/?skip=1&limit=2`
-
-## 5. Dependency Execution Flow
-
-When a request comes in for `/items/?skip=10&limit=5`:
-
-1.  FastAPI sees that `read_items` depends on `common_parameters`.
-2.  FastAPI checks if `common_parameters` needs any parameters itself (yes: `skip` and `limit`).
-3.  FastAPI extracts `skip=10` and `limit=5` from the request's query string.
-4.  FastAPI calls `common_parameters(skip=10, limit=5)`.
-5.  `common_parameters` returns `{"skip": 10, "limit": 5}`.
-6.  FastAPI calls `read_items(commons={"skip": 10, "limit": 5})`.
-7.  `read_items` executes its logic using the `commons` dictionary.
-
-## 6. Dependencies with `yield`: Managing Resources
-
-What if a dependency needs to set something up (like opening a database connection) and then clean it up afterwards (close the connection), regardless of whether the endpoint succeeded or failed? Dependencies can use `yield`.
+**Action:** Define the `get_db_session` dependency:
 
 ```python
-# main.py (in lesson_06, add this dependency example)
+# main.py (in lesson_06)
 
-# --- Dependency with yield (Resource Management) ---
+# Dependency with yield for resource management (e.g., DB session)
 async def get_db_session():
-    """
-    Simulates acquiring and releasing a database session.
-    Uses 'yield' to manage the resource lifecycle.
-    """
+    """ Simulates acquiring and releasing a database session using yield. """
     print("==> Simulating DB connection open <==")
-    # Code before yield runs before the endpoint
-    db_session = {"id": 123, "status": "connected", "data": {}} 
+    db_session = {"id": hash(str(id({}))), "status": "connected", "data": {}} # Simulate unique session
     try:
-        yield db_session # The yielded value is injected into the endpoint
+        # Code before yield runs before the endpoint.
+        # The yielded value is injected into the endpoint.
+        yield db_session
     finally:
-        # Code after yield runs *after* the endpoint finishes (even if errors occurred)
-        print("==> Simulating DB connection close <==")
-        # In a real DB session: session.close()
+        # Code after yield runs *after* the endpoint finishes,
+        # even if the endpoint raised an exception. Perfect for cleanup!
+        print(f"==> Simulating DB connection close (Session ID: {db_session['id']}) <==")
 
-# --- Endpoint using the yielding dependency ---
-@app.get("/data-from-db")
-async def get_data(db: dict = Depends(get_db_session)):
-    """ Reads hypothetical data using a dependency-managed DB session. """
-    print(f"--- Endpoint using DB session ID: {db.get('id')} ---")
-    # Simulate using the session
-    db["data"]["item1"] = "value1" 
-    return {"message": "Data accessed using DB session", "session_details": db}
-
-# --- Endpoint that causes an error while using the session ---
-@app.get("/data-from-db-error")
-async def get_data_error(db: dict = Depends(get_db_session)):
-    """ Simulates an error occurring while using the DB session. """
-    print(f"--- Endpoint (error case) using DB session ID: {db.get('id')} ---")
-    # Simulate using the session then causing an error
-    db["data"]["item1"] = "value1"
-    raise HTTPException(status_code=500, detail="Something went wrong in the endpoint!")
-    # Notice the 'finally' block in get_db_session will still run!
-
+DBSessionDep = Annotated[dict, Depends(get_db_session)]
 ```
 
-**Explanation:**
-
-1.  `get_db_session` simulates opening a connection before the `yield`.
-2.  It `yield`s the session object (`db_session`). This value is injected into the endpoint.
-3.  The endpoint (`get_data` or `get_data_error`) runs.
-4.  *After* the endpoint finishes (or raises an exception), the code in the `finally` block of `get_db_session` runs, ensuring cleanup (simulated connection close).
-
-**Action:** Test `/data-from-db` and `/data-from-db-error` via `/docs`. Observe the print statements in your terminal to see the "open" and "close" messages wrapping the endpoint execution, even when an error occurs.
-
-## 7. Dependencies Calling Other Dependencies
-
-Dependencies can depend on other dependencies! FastAPI handles resolving the chain.
+**Action:** Add endpoints using this dependency:
 
 ```python
-# main.py (in lesson_06, add these examples)
+# main.py (in lesson_06)
 
-# --- More Dependencies ---
-async def get_api_key(api_key: str | None = Depends(lambda: Header(None, alias="X-API-Key"))):
-     """ Dependency to extract an API key from the X-API-Key header. """
-     # Using Header directly inside Depends requires a lambda or separate function
-     # We'll cover Headers more later, this is just for DI demo.
-     print(f"API Key dependency checking header: {api_key}")
-     if not api_key:
-         raise HTTPException(status_code=401, detail="X-API-Key header missing")
-     return api_key
+@app.get("/batcomputer-logs")
+async def get_logs(db: DBSessionDep): # Use the yielding dependency
+    """ Reads logs using a dependency-managed DB session (simulation). """
+    print(f"--- Endpoint using Batcomputer DB session ID: {db.get('id')} ---")
+    db["data"]["log_entry_1"] = "Accessed gadget inventory." # Use the injected session
+    return {"message": "Log data accessed using DB session", "session_details": db}
 
-async def verify_key_and_get_user(api_key: str = Depends(get_api_key)):
-     """ Dependency that depends on get_api_key and verifies it. """
-     print(f"Verifying API key: {api_key}")
-     if api_key != "fake-secret-key-123": # Simulate checking the key
-         raise HTTPException(status_code=403, detail="Invalid API Key provided")
-     # Simulate fetching user based on key
-     return {"user_id": "user_for_" + api_key, "permissions": ["read"]}
-
-# --- Endpoint using the dependent dependency ---
-@app.get("/secure-data")
-# This endpoint only needs to depend on the *final* dependency in the chain.
-# FastAPI figures out that verify_key_and_get_user needs get_api_key.
-async def read_secure_data(current_user: dict = Depends(verify_key_and_get_user)):
-     """ Accesses secure data, requiring a valid API key via dependencies. """
-     print(f"Endpoint accessing data for user: {current_user.get('user_id')}")
-     return {"message": "This is secure data.", "accessed_by": current_user}
-
+@app.get("/batcomputer-logs-error")
+async def get_logs_error(db: DBSessionDep):
+    """ Simulates an error occurring while using the DB session for logs. """
+    print(f"--- Endpoint (error case) using Batcomputer DB session ID: {db.get('id')} ---")
+    db["data"]["log_entry_error"] = "Attempting risky operation..."
+    raise HTTPException(status_code=500, detail="Batcomputer core meltdown simulated!")
+    # Even though we raise an error here, the 'finally' block in get_db_session will execute.
 ```
-*(Note: We need `Header` for the `get_api_key` example)*
-**Action:** Add `Header` to the `fastapi` import: `from fastapi import FastAPI, HTTPException, Depends, Header`. Test `/secure-data` via `/docs`. You'll need to use the "Try it out" feature to add the `X-API-Key` header. Try with no header, the wrong key, and the correct key (`fake-secret-key-123`).
+When you call these endpoints, check the terminal output to see the "open" and "close" messages, demonstrating the setup/teardown lifecycle managed by the dependency.
+
+## 5. Dependencies Calling Other Dependencies: Chaining Protocols
+
+Dependencies can depend on other dependencies. This allows building layers of logic (e.g., first get an API key, then verify it).
+
+**Action:** Define `get_api_key` and `verify_key_and_get_user` dependencies:
+
+```python
+# main.py (in lesson_06)
+from fastapi import Header
+
+# Dependency to get API Key from header
+async def get_api_key(x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None):
+    """ Dependency to extract an API key from the X-API-Key header. """
+    print(f"API Key dependency checking header: {x_api_key}")
+    if not x_api_key:
+        raise HTTPException(status_code=401, detail="X-API-Key header missing (Authentication required)")
+    return x_api_key
+
+APIKeyDep = Annotated[str, Depends(get_api_key)]
+
+# Dependency that depends on another dependency (verify API key)
+async def verify_key_and_get_user(api_key: APIKeyDep): # Depends on get_api_key via APIKeyDep
+    """ Dependency that depends on get_api_key and verifies it (simulated). """
+    # FastAPI sees api_key: APIKeyDep. It knows APIKeyDep means Depends(get_api_key).
+    # So, it first calls get_api_key() and passes the result here as 'api_key'.
+    print(f"Verifying API key: {api_key}")
+    if api_key != "gcpd-secret-key-789": # Simulate checking the key
+        raise HTTPException(status_code=403, detail="Invalid API Key provided (Access Denied)")
+
+    user_data = {"user_id": "gcpd_officer_jim", "permissions": ["read_cases"]}
+    print(f"API Key verified, returning user data: {user_data}")
+    return user_data # This user_data is injected into the endpoint
+
+VerifiedUserDep = Annotated[dict, Depends(verify_key_and_get_user)]
+```
+
+**Action:** Add an endpoint using the chained dependency:
+
+```python
+# main.py (in lesson_06)
+
+@app.get("/gcpd-files")
+async def read_gcpd_files(current_user: VerifiedUserDep): # Depends on verify_key_and_get_user
+     """ Accesses secure GCPD files, requiring a valid API key via dependencies. """
+     # FastAPI calls verify_key_and_get_user, which calls get_api_key.
+     # The final result (user_data) from verify_key_and_get_user is injected here.
+     print(f"Endpoint accessing GCPD files for user: {current_user.get('user_id')}")
+     return {"message": "Access granted to secure GCPD files.", "accessed_by": current_user}
+```
+
+## 6. Testing Dependencies
+
+**Action:**
+
+1.  Run the server: `uvicorn main:app --reload`
+2.  Go to `http://127.0.0.1:8000/docs`.
+3.  Test the new endpoints:
+    *   `/items/`: Try adding `?skip=...` and `?limit=...`. Observe terminal output for `common_parameters`.
+    *   `/list-contacts/`: Try adding `?limit=...`. Observe reuse of `common_parameters`.
+    *   `/batcomputer-logs`: Call it. Observe "open" and "close" messages in terminal.
+    *   `/batcomputer-logs-error`: Call it. Observe the 500 error, but *also* the "open" and "close" messages in terminal (finally block runs).
+    *   `/gcpd-files`: Click "Try it out". Add a Header parameter named `X-API-Key` with value `gcpd-secret-key-789`. Execute. Should succeed.
+    *   `/gcpd-files`: Try again with a *wrong* `X-API-Key` value. Should get 403 Forbidden.
+    *   `/gcpd-files`: Try again *without* the `X-API-Key` header. Should get 401 Unauthorized.
 
 ---
 
-**Thanos Analogy Recap:**
+**Batman Analogy Recap:**
 
-The Mind Stone grants knowledge and influence. Dependency Injection (`Depends`) *influences* your endpoints by providing necessary *knowledge* (data like pagination params) or *tools* (like a DB session or user info) obtained from reusable dependency functions. Dependencies can even influence each other, creating chains of knowledge acquisition, all managed seamlessly by FastAPI.
+Batcomputer Protocols (Dependencies) allow us to define reusable logic. `common_parameters` is like a standard pagination protocol used by multiple endpoints (`/items/`, `/list-contacts/`). `get_db_session` is a protocol for safely connecting and disconnecting from the Batcomputer's core database, ensuring cleanup even if errors occur (`yield`). `get_api_key` and `verify_key_and_get_user` form a chained security protocol: first check for credentials (`X-API-Key`), then verify them before granting access (`/gcpd-files`). `Depends` is the mechanism that links endpoints to these protocols.
 
 **Memory Aid:**
 
-*   `Depends(dependency_func)` = Inject Knowledge/Tool
-*   `dependency_func()` = The Source of Knowledge/Tool
-*   `yield` in dependency = Manage Tool Lifecycle (Setup/Cleanup)
-*   DI Chain = Mind Stone influencing an intermediary who then influences the final target.
+*   `async def my_dependency(...): return value` = Define a Reusable Protocol
+*   `DepType = Annotated[ReturnType, Depends(my_dependency)]` = Create Alias for Protocol
+*   `async def my_endpoint(result: DepType):` = Use the Protocol (Inject Result)
+*   `async def resource_mgr(): try: yield resource finally: cleanup` = Protocol with Setup/Teardown
+*   `async def protocol_b(result_a: DepTypeA):` = Protocol B depends on Protocol A
 
 ---
 
 **Homework:**
 
-1.  Create a simple dependency function `get_current_user()` that simulates fetching user data and returns a dictionary like `{"username": "thanos", "email": "thanos@titan.net", "is_active": True}`.
-2.  Create an endpoint `GET /users/me` that uses `Depends(get_current_user)` to get the user data and returns it.
-3.  Modify the `get_current_user` dependency: add a check so that if `is_active` is `False` in the returned dictionary, it raises an `HTTPException` with `status_code=400` and detail "Inactive user". Test this by temporarily changing the simulated user data.
+1.  **Current User Dependency:** Create an `async def get_current_user():` dependency that simulates fetching user data (e.g., return a dictionary like `{"username": "batman", "email": "...", "is_active": True}`).
+2.  **`/contacts/me` Endpoint:** Create a `GET /contacts/me` endpoint that depends on `get_current_user` and simply returns the user data provided by the dependency.
+3.  **Inactive User Check:** Modify the `get_current_user` dependency: if the simulated user's `"is_active"` field is `False`, raise an `HTTPException` with `status_code=400` and detail "User account is inactive." Test `/contacts/me` in both active and inactive states (by temporarily changing the simulated data in the dependency).
 
 **Stretch Goal:**
 
-Create a dependency `verify_admin_user` that itself depends on `get_current_user`. Inside `verify_admin_user`, check if the `username` from the user data is "thanos". If it's not "thanos", raise an `HTTPException` with `status_code=403` (Forbidden) and detail "Admin privileges required". Create an endpoint `GET /admin/panel` that depends on `verify_admin_user` and returns `{"message": "Welcome, Admin!"}`. Test it (it should only work if `get_current_user` returns the "thanos" username).
+1.  **Admin Verification Dependency:** Create a new dependency `async def verify_admin_user(current_user: CurrentUserDep):` which *depends on* your `get_current_user` dependency (use the `CurrentUserDep` alias). Inside `verify_admin_user`, check if `current_user['username']` is equal to `"batman"`. If not, raise an `HTTPException` with `status_code=403` (Forbidden) and detail "Admin privileges required." If it *is* "batman", simply return the `current_user` dictionary.
+2.  **Admin Panel Endpoint:** Create a `GET /batcave/control-panel` endpoint that depends on your new `verify_admin_user` dependency. It should return a simple success message if access is granted.
+3.  **Test:** Test `/batcave/control-panel` (it should work if `get_current_user` returns "batman"). Then, temporarily modify `get_current_user` to return a different username (e.g., "robin") and test `/batcave/control-panel` again – it should now fail with a 403 error.
 
 *(Find the complete code for this lesson, including homework and stretch goal, in `main.py`)*
 
@@ -276,4 +249,4 @@ Create a dependency `verify_admin_user` that itself depends on `get_current_user
 
 **Kubernetes Korner (Optional Context):**
 
-How do applications running in Kubernetes get configuration like database URLs, API keys for external services, or logging levels? Hardcoding is bad. Kubernetes offers "ConfigMaps" for non-sensitive configuration and "Secrets" for sensitive data (like API keys, passwords). These can be *injected* into your Pods as environment variables or mounted as files. This is conceptually similar to Dependency Injection – the Kubernetes cluster *injects* necessary configuration *dependencies* into your application's environment at runtime, decoupling the application code from its configuration.
+Dependencies in FastAPI share some conceptual similarity with **Sidecar Containers** in Kubernetes. A sidecar is an additional container running in the same Pod as your main application container. It shares the same network and storage, and often handles cross-cutting concerns like logging, monitoring, service discovery, or acting as a proxy – tasks that support the main application without being part of its core logic. Just like FastAPI dependencies handle tasks like authentication or DB connections alongside your endpoint logic, sidecars handle infrastructure tasks alongside your application container.

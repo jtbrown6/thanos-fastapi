@@ -1,69 +1,72 @@
-# Lesson 4: The Eye of Agamotto - Structuring Time (and Data) with Pydantic
+# Lesson 4: The Utility Belt - Structuring Data with Pydantic Models
 # Complete code including Homework and Stretch Goal
 
 from fastapi import FastAPI
 import httpx
-from pydantic import BaseModel # Import Pydantic's BaseModel
+from pydantic import BaseModel, Field # Import Pydantic's BaseModel and Field
 
 app = FastAPI()
 
-# --- Define Pydantic Models ---
-# These classes define the expected structure and types for data in request bodies.
+# --- Define Pydantic Models (Data Blueprints) ---
+# These classes define the expected structure and types for data in request bodies,
+# like blueprints for gadgets or case files.
 
-class Stone(BaseModel):
-    name: str # Required string field
-    description: str | None = None # Optional string field
-    acquired: bool # Stretch Goal: Required boolean field
+class CaseFile(BaseModel):
+    case_name: str = Field(..., description="The unique name or identifier for the case.") # Required string field
+    details: str | None = Field(None, description="Optional details or summary of the case.") # Optional string field
+    is_open: bool = Field(..., description="Whether the case is currently active/open.") # Required boolean field
 
-class Character(BaseModel): # Homework Model
-    name: str # Required string field
-    affiliation: str | None = None # Optional string field
-    power_level: int = 0 # Required integer field with a default value
+class RogueProfile(BaseModel): # Homework Model
+    alias: str = Field(..., description="The known alias of the rogue.") # Required string field
+    status: str | None = Field(None, description="Current known status (e.g., 'At Large', 'Incarcerated').") # Optional string field
+    threat_level: int = Field(default=1, ge=1, le=10, description="Assessed threat level (1-10).") # Integer field with default and validation
+
+# --- Endpoints from Previous Lessons (Updated for Theme) ---
 
 # --- Endpoints from Previous Lessons (for context) ---
 
 @app.get("/")
 async def read_root():
-    return {"message": "Hello, Universe!"}
+    return {"message": "Hello, Gotham!"}
 
 @app.get("/status")
 async def get_status():
-    return {"status": "Seeking Stones"}
+    return {"status": "Protecting Gotham"}
 
-@app.get("/planets/{planet_name}")
-async def scan_planet(planet_name: str):
-    return {"message": f"Scanning planet: {planet_name.capitalize()}"}
+@app.get("/locations/{location_name}")
+async def scan_location(location_name: str):
+    return {"message": f"Scanning location: {location_name.title()}"}
 
-@app.get("/stones/{stone_id}")
-async def locate_stone(stone_id: int):
+@app.get("/gadgets/{gadget_id}")
+async def get_gadget(gadget_id: int):
     # Note: This endpoint currently just returns the ID.
     # We'll make it more useful later when we have stored data.
-    return {"stone_id": stone_id, "status": "Located (hypothetically)"}
+    return {"gadget_id": gadget_id, "status": "Available (hypothetically)"}
 
-@app.get("/alliances/{ally_name}/members/{member_id}")
-async def get_alliance_member(ally_name: str, member_id: int):
+@app.get("/rogues/{rogue_name}/cases/{case_id}")
+async def get_rogue_case(rogue_name: str, case_id: int):
     return {
-        "alliance": ally_name,
-        "member_id": member_id,
-        "status": "Found in alliance records"
+        "rogue": rogue_name.title(),
+        "case_id": case_id,
+        "status": "Case file found"
         }
 
-@app.get("/search")
-async def search_reality(term: str | None = None, limit: int = 10):
-    if term:
-        return {"searching_for": term, "results_limit": limit}
+@app.get("/search-database")
+async def search_gotham_database(keyword: str | None = None, limit: int = 10):
+    if keyword:
+        return {"searching_for_keyword": keyword, "results_limit": limit}
     else:
-        return {"message": "Provide a 'term' query parameter to search.", "results_limit": limit}
+        return {"message": "Provide a 'keyword' query parameter to search the database.", "results_limit": limit}
 
-@app.get("/planets/{planet_name}/info")
-async def get_planet_info(planet_name: str, min_power: int = 0):
+@app.get("/locations/{location_name}/details")
+async def get_location_details(location_name: str, min_threat_level: int = 0):
     return {
-        "planet": planet_name.capitalize(),
-        "filter_min_power": min_power,
-        "data": f"Details about {planet_name.capitalize()} with power > {min_power} would go here."
+        "location": location_name.title(),
+        "filter_min_threat": min_threat_level,
+        "data": f"Intel report for {location_name.title()} with threat level > {min_threat_level} would go here."
         }
 
-@app.get("/fetch-posts")
+@app.get("/fetch-posts") # Keeping generic as it's external simulation
 async def fetch_external_posts(limit: int = 5, user_id: int | None = None):
     external_api_url = "https://jsonplaceholder.typicode.com/posts"
     params = {"_limit": limit}
@@ -75,75 +78,76 @@ async def fetch_external_posts(limit: int = 5, user_id: int | None = None):
             response.raise_for_status()
             external_data = response.json()
             return {
-                "message": f"Successfully fetched {len(external_data)} posts",
-                "source": "JSONPlaceholder API",
+                "message": f"Successfully fetched {len(external_data)} intel reports (posts) from external source",
+                "source": "JSONPlaceholder API (Simulated Intel Feed)",
                 "filter_params_sent": params,
-                "posts": external_data
+                "reports": external_data
             }
-        # Basic error handling (omitted details for brevity in this context)
+        # Basic error handling
         except httpx.RequestError as exc:
-            return {"error": "Failed to fetch data", "details": str(exc)}
+            return {"error": "Failed to fetch intel from external source", "details": str(exc)}
         except httpx.HTTPStatusError as exc:
-            return {"error": f"External API error: {exc.response.status_code}", "details": exc.response.text}
+            return {"error": f"External intel source returned status {exc.response.status_code}", "details": exc.response.text}
 
-@app.get("/filter_stones")
-async def filter_stones(min_power: int = 0, max_power: int | None = None):
+@app.get("/filter-gadgets")
+async def filter_gadgets(min_utility: int = 0, max_utility: int | None = None):
     return {
-        "filtering_by": {
-            "min_power": min_power,
-            "max_power": max_power if max_power is not None else "No upper limit"
+        "filtering_gadgets_by": {
+            "min_utility": min_utility,
+            "max_utility": max_utility if max_utility is not None else "No upper limit"
         }
     }
 
-@app.get("/fetch-users/{user_id}")
-async def fetch_external_user(user_id: int):
-    external_api_url = f"https://jsonplaceholder.typicode.com/users/{user_id}"
+@app.get("/fetch-contacts/{contact_id}")
+async def fetch_external_contact(contact_id: int):
+    external_api_url = f"https://jsonplaceholder.typicode.com/users/{contact_id}"
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(external_api_url)
             response.raise_for_status()
-            user_data = response.json()
+            contact_data = response.json()
             return {
-                "message": f"Successfully fetched user {user_id}",
-                "source": "JSONPlaceholder API",
-                "user_data": user_data
+                "message": f"Successfully fetched contact {contact_id}",
+                "source": "JSONPlaceholder API (Simulated Contact DB)",
+                "contact_data": contact_data
             }
-        # Basic error handling (omitted details for brevity in this context)
+        # Basic error handling
         except httpx.RequestError as exc:
-            return {"error": "Failed to fetch user data", "details": str(exc)}
+            return {"error": "Failed to fetch contact data from external source", "details": str(exc)}
         except httpx.HTTPStatusError as exc:
-            return {"error": f"External API error: {exc.response.status_code}", "user_id_requested": user_id}
+            return {"error": f"External API returned status {exc.response.status_code} (Contact likely not found)", "contact_id_requested": contact_id}
 
 
-# --- New Endpoints for Lesson 4 ---
+# --- New Endpoints for Lesson 4: Receiving Structured Data ---
 
-@app.post("/stones")
-async def create_stone(stone: Stone): # Expects JSON body matching the Stone model
+@app.post("/cases") # Changed path from /stones
+async def create_case(case_file: CaseFile): # Expects JSON body matching the CaseFile model
     """
-    Creates a new stone entry based on the provided data.
-    FastAPI uses the 'Stone' Pydantic model to validate the request body.
+    Creates a new case file entry based on the provided data.
+    FastAPI uses the 'CaseFile' Pydantic model to validate the request body automatically.
+    If validation fails, FastAPI returns a 422 error.
     """
-    print(f"Received stone data: {stone}") # Pydantic models have nice string representations
-    
-    # In a real application, you would typically save the validated 'stone' data
-    # (e.g., stone.name, stone.description, stone.acquired) to a database.
+    print(f"Received case file data: {case_file}") # Pydantic models have nice string representations
+
+    # In a real application, you would typically save the validated 'case_file' data
+    # (e.g., case_file.case_name, case_file.details, case_file.is_open) to a database.
     # For now, we just print it and return it.
-    
+
     # Use .model_dump() (Pydantic v2+) or .dict() (Pydantic v1) to get a dictionary representation
-    return {"message": f"Stone '{stone.name}' created successfully.", "received_data": stone.model_dump()}
+    return {"message": f"Case File '{case_file.case_name}' created successfully.", "received_data": case_file.model_dump()}
 
 # Homework Endpoint
-@app.post("/characters")
-async def create_character(character: Character): # Expects JSON body matching Character model
+@app.post("/rogues") # Changed path from /characters
+async def create_rogue_profile(rogue_profile: RogueProfile): # Expects JSON body matching RogueProfile model
     """
-    Creates a new character entry based on the provided data.
-    FastAPI uses the 'Character' Pydantic model to validate the request body.
+    Creates a new rogue profile entry based on the provided data.
+    FastAPI uses the 'RogueProfile' Pydantic model to validate the request body.
     """
-    print(f"Received character data: {character}")
-    
+    print(f"Received rogue profile data: {rogue_profile}")
+
     # Again, normally you'd save this to a database.
-    
-    return {"message": f"Character '{character.name}' created successfully.", "received_data": character.model_dump()}
+
+    return {"message": f"Rogue profile for '{rogue_profile.alias}' created successfully.", "received_data": rogue_profile.model_dump()}
 
 
 # To run this application:
@@ -152,11 +156,11 @@ async def create_character(character: Character): # Expects JSON body matching C
 # 3. Install dependencies if needed: `pip install "fastapi[all]"` and `pip install httpx`
 # 4. Run: `uvicorn main:app --reload`
 # 5. Test endpoints using http://127.0.0.1:8000/docs
-#    - Try the new POST /stones endpoint. Send valid JSON like:
-#      {"name": "Time", "description": "Green and glowy", "acquired": false}
-#    - Try sending invalid JSON (e.g., missing 'name', missing 'acquired', wrong type)
-#      and observe the 422 validation errors.
-#    - Try the new POST /characters endpoint (Homework). Send valid JSON like:
-#      {"name": "Thor", "affiliation": "Avengers", "power_level": 950}
-#      {"name": "Groot", "affiliation": "Guardians"} (power_level defaults to 0)
-#    - Try sending invalid character data.
+#    - Try the new POST /cases endpoint. Send valid JSON like:
+#      {"case_name": "Fear Gas Attack", "details": "Investigate Scarecrow's latest plot", "is_open": true}
+#    - Try sending invalid JSON (e.g., missing 'case_name', missing 'is_open', wrong type for 'is_open')
+#      and observe the 422 validation errors FastAPI provides automatically.
+#    - Try the new POST /rogues endpoint (Homework). Send valid JSON like:
+#      {"alias": "Riddler", "status": "At Large", "threat_level": 7}
+#      {"alias": "Catwoman", "status": "Unknown"} (threat_level defaults to 1)
+#    - Try sending invalid rogue data (e.g., missing 'alias', threat_level > 10).

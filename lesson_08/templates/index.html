@@ -7,41 +7,44 @@
     <!-- request.url_for generates the correct path to the 'static' mount point -->
     <link href="{{ request.url_for('static', path='/style.css') }}" rel="stylesheet">
     <!-- Use data passed from Python for the title -->
-    <title>{{ page_title }} - FastAPI Gauntlet</title>
+    <title>{{ page_title }} - Batcomputer Interface</title> <!-- Updated suffix -->
 </head>
 <body>
     <div class="container">
         <!-- Display the main heading passed from Python -->
-        <h1>{{ heading }}</h1>
-        
-        <p>Welcome to the Knowhere Data Hub, the central repository for tracking the Infinity Stones and associated entities.</p>
-        
+        <h1>{{ heading }}</h1> <!-- Updated in main.py context -->
+
+        <p>Welcome to the Batcave Main Display, the central interface for monitoring Gotham's status and managing resources.</p> <!-- Updated text -->
+
         <!-- Example of using data passed in a dictionary -->
         <h2>Current Status:</h2>
         <ul>
-            <li>Stones Acquired: {{ status_data.stones_acquired }} / 6</li>
-            <li>Quest Status: {{ status_data.status }}</li>
+            <!-- Updated status keys based on main.py context -->
+            <li>Gadget Types in Stock: {{ status_data.gadgets_in_stock }} / {{ len(gadgets) }}</li>
+            <li>System Status: {{ status_data.status }}</li>
         </ul>
 
         <!-- Example of looping through a dictionary passed from Python -->
-        <h2>Known Stones:</h2>
+        <h2>Gadget Inventory:</h2> <!-- Updated heading -->
         <ul>
-            {% for stone_id, stone_info in stones.items() %}
+            <!-- Loop through 'gadgets' dictionary -->
+            {% for gadget_id, gadget_info in gadgets.items() %}
                 <li>
-                    ID {{ stone_id }}: <strong>{{ stone_info.name }}</strong> ({{ stone_info.color }})
+                    ID {{ gadget_id }}: <strong>{{ gadget_info.name }}</strong> (Type: {{ gadget_info.type }})
                     <br>
-                    Location: {{ stone_info.location }}
-                    <!-- Stretch Goal: Link to stone details page -->
-                    <!-- Uses url_for with the 'name' given to the @app.get decorator -->
-                    (<a href="{{ request.url_for('get_stone_details', stone_id=stone_id) }}">View API Details</a>)
+                    <!-- Display stock status -->
+                    Status: {% if gadget_info.in_stock %}In Stock{% else %}Out of Stock{% endif %}
+                    <!-- Stretch Goal: Link to gadget details page -->
+                    <!-- Uses url_for with the updated 'name' -->
+                    (<a href="{{ request.url_for('get_gadget_details', gadget_id=gadget_id) }}">View API Details</a>)
                 </li>
             {% else %}
-                <li>No stones found in the database.</li>
+                <li>No gadgets found in the inventory.</li> <!-- Updated empty message -->
             {% endfor %}
         </ul>
 
         <p>
-            <a href="/characters-view">View Character Database</a> | 
+            <a href="/contacts-view">View Contact Database</a> | <!-- Updated link -->
             <a href="/docs">Explore the Full API Docs</a>
         </p>
     </div>

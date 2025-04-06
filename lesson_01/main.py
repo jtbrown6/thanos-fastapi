@@ -1,4 +1,4 @@
-# Lesson 1: The Tesseract - Creating Your First API Space
+# Lesson 1: The Bat-Signal - Creating Your First API Endpoint
 # Complete code including Stretch Goal
 
 # Step 1: Import the necessary class
@@ -17,16 +17,16 @@ async def read_root(): # Use 'async def' for asynchronous path operation functio
     """
     # Step 4: Define what the function returns
     # FastAPI automatically converts Python dictionaries to JSON responses.
-    return {"message": "Hello, Universe!"}
+    return {"message": "Hello, Gotham!"}
 
 # Step 5 (Stretch Goal): Add another simple endpoint
 @app.get("/status")
 async def get_status():
     """
-    Returns the current status of our quest.
+    Returns the current status of our mission in Gotham.
     Accessible via GET request to /status
     """
-    return {"status": "Seeking Stones"}
+    return {"status": "Protecting Gotham"}
 
 # To run this application:
 # 1. Make sure you are in the 'lesson_01' directory in your terminal

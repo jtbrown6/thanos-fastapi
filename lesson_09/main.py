@@ -1,4 +1,4 @@
-# Lesson 9: The Bifrost Bridge - Middleware & CORS
+# Lesson 9: Batcave Security Protocols - Middleware & CORS
 # Complete code including Homework and Stretch Goal
 
 from fastapi import FastAPI, HTTPException, Depends, Header, BackgroundTasks, Request
@@ -8,15 +8,15 @@ from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware # Import CORS Middleware
 
 import httpx
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, EmailStr # Import Field, EmailStr
 from typing import Annotated
 import time
 import os
 
 app = FastAPI(
-    title="FastAPI Gauntlet API",
-    description="API for tracking Infinity Stones and related entities.",
-    version="0.9.0", # Starting version for Lesson 9
+    title="Batcomputer API Interface", # Updated title
+    description="API for managing Batcave resources, contacts, and intel.", # Updated description
+    version="0.9.0", # Keep version for lesson context
 )
 
 # --- CORS Middleware Definition ---
@@ -75,143 +75,143 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 
-# --- Define Pydantic Models ---
-class Stone(BaseModel):
-    name: str
-    description: str | None = None
-    acquired: bool
+# --- Define Pydantic Models (Updated) ---
+class GadgetSpec(BaseModel):
+    name: str = Field(..., description="The name of the gadget.")
+    description: str | None = Field(None, description="Optional description of the gadget.")
+    in_stock: bool = Field(..., description="Whether the gadget is currently available.")
 
-class Character(BaseModel):
-    name: str
-    affiliation: str | None = None
-    power_level: int = 0
+class Contact(BaseModel):
+    name: str = Field(..., description="The name of the contact.")
+    affiliation: str | None = Field(None, description="Known affiliation (e.g., GCPD, Wayne Enterprises).")
+    trust_level: int = Field(default=3, ge=1, le=5, description="Assessed trust level (1-5, 5=highest).")
 
-class ReportRequest(BaseModel):
-    recipient_email: str
-    report_name: str
+class IntelReportRequest(BaseModel):
+    recipient_email: EmailStr
+    report_name: str = Field(..., description="The name or subject of the intel report.")
 
-# --- Simulate a Database ---
-known_stones_db = {
-    1: {"name": "Space", "location": "Tesseract", "color": "Blue", "acquired": True},
-    2: {"name": "Mind", "location": "Scepter/Vision", "color": "Yellow", "acquired": True},
-    3: {"name": "Reality", "location": "Aether", "color": "Red", "acquired": True},
-    4: {"name": "Power", "location": "Orb/Gauntlet", "color": "Purple", "acquired": True},
-    5: {"name": "Time", "location": "Eye of Agamotto", "color": "Green", "acquired": True},
-    6: {"name": "Soul", "location": "Vormir/Gauntlet", "color": "Orange", "acquired": True}
+# --- Simulate Batcomputer Databases ---
+gadget_inventory_db = {
+    1: {"name": "Batarang", "type": "Standard Issue", "in_stock": True},
+    2: {"name": "Grappling Hook", "type": "Mobility", "in_stock": True},
+    3: {"name": "Smoke Pellet", "type": "Stealth", "in_stock": False},
+    4: {"name": "Remote Hacking Device", "type": "Tech", "in_stock": True},
+    5: {"name": "Explosive Gel", "type": "Demolition", "in_stock": True},
 }
-characters_db = {}
-next_character_id = 1
+contacts_db = {} # Populated by POST /contacts
+next_contact_id = 1
 
-# --- Dependencies ---
+# --- Dependencies (Updated) ---
 async def get_current_user():
-    user_data = {"username": "thanos", "email": "thanos@titan.net", "is_active": True}
+    user_data = {"username": "batman", "email": "bruce@wayne.enterprises", "is_active": True} # Batman theme
     if not user_data["is_active"]:
-         raise HTTPException(status_code=400, detail="Inactive user")
+         raise HTTPException(status_code=400, detail="User account is inactive.")
     return user_data
 CurrentUserDep = Annotated[dict, Depends(get_current_user)]
 
-# --- Background Task Functions ---
-def write_notification_log(email: str, message: str = ""):
-    log_message = f"Notification for {email}: {message}\n"
-    print(f"--- BACKGROUND TASK START: Writing log: '{log_message.strip()}' ---")
+# --- Background Task Functions (Alfred's Duties - Updated) ---
+def log_batcomputer_activity(user_email: str, activity: str = ""):
+    log_message = f"User {user_email} activity: {activity}\n"
+    print(f"--- BACKGROUND TASK START: Logging activity: '{log_message.strip()}' ---")
     time.sleep(0.5) # Faster for testing
-    log_dir = "logs"
+    log_dir = "batcomputer_logs"
     os.makedirs(log_dir, exist_ok=True)
-    file_path = os.path.join(log_dir, "notification_log.txt")
+    file_path = os.path.join(log_dir, "activity_log.txt")
     with open(file_path, mode="a") as log_file:
         log_file.write(log_message)
-    print(f"--- BACKGROUND TASK END: Log written to '{file_path}' for {email} ---")
+    print(f"--- BACKGROUND TASK END: Activity logged to '{file_path}' for {user_email} ---")
 
-def simulate_report_generation(report_request: ReportRequest):
+def simulate_intel_report_compilation(report_request: IntelReportRequest):
     email = report_request.recipient_email
     name = report_request.report_name
-    print(f"--- BACKGROUND TASK START: Generating report '{name}' for {email} ---")
+    print(f"--- BACKGROUND TASK START: Compiling intel report '{name}' for {email} ---")
     time.sleep(1) # Faster for testing
-    print(f"--- BACKGROUND TASK END: Report '{name}' generated for {email} ---")
+    print(f"--- BACKGROUND TASK END: Intel report '{name}' compiled for {email} ---")
 
 
 # --- API Endpoints ---
 
 @app.get("/")
 async def read_root():
-    return {"message": "Welcome to the FastAPI Gauntlet API. Try /home for HTML view or /docs for API docs."}
+    return {"message": "Welcome to the Batcomputer API Interface. Try /batcave-display for HTML view or /docs for API docs."} # Updated message
 
-@app.get("/stones/{stone_id}", name="get_stone_details")
-async def locate_stone(stone_id: int):
-    if stone_id not in known_stones_db:
-        raise HTTPException(status_code=404, detail=f"Stone with ID {stone_id} not found.")
-    return {"stone_id": stone_id, "status": "Located", "details": known_stones_db[stone_id]}
+@app.get("/gadgets/{gadget_id}", name="get_gadget_details") # Updated path/name
+async def get_gadget_details(gadget_id: int): # Renamed function
+    if gadget_id not in gadget_inventory_db: # Use updated DB
+        raise HTTPException(status_code=404, detail=f"Gadget with ID {gadget_id} not found in inventory.")
+    return {"gadget_id": gadget_id, "status": "Located in inventory", "details": gadget_inventory_db[gadget_id]} # Use updated DB
 
-@app.post("/characters", status_code=201)
-async def create_character(character: Character):
-    global next_character_id
-    for char_data in characters_db.values():
-        if char_data["name"].lower() == character.name.lower():
-            raise HTTPException(status_code=400, detail=f"Character named '{character.name}' already exists.")
-    new_id = next_character_id
-    characters_db[new_id] = character.model_dump()
-    characters_db[new_id]["id"] = new_id
-    next_character_id += 1
-    return characters_db[new_id]
+@app.post("/contacts", status_code=201) # Updated path
+async def create_contact(contact: Contact): # Updated function/model
+    global next_contact_id # Use updated global
+    for contact_data in contacts_db.values(): # Use updated DB
+        if contact_data["name"].lower() == contact.name.lower():
+            raise HTTPException(status_code=400, detail=f"Contact named '{contact.name}' already exists.")
+    new_id = next_contact_id # Use updated global
+    contacts_db[new_id] = contact.model_dump() # Use updated DB
+    contacts_db[new_id]["id"] = new_id
+    next_contact_id += 1 # Use updated global
+    return contacts_db[new_id]
 
-@app.post("/send-notification/{email}")
-async def send_notification(email: str, background_tasks: BackgroundTasks):
-    confirmation_message = f"Notification queued for {email}"
-    background_tasks.add_task(write_notification_log, email, message=confirmation_message)
+@app.post("/log-activity/{user_email}") # Updated path
+async def log_user_activity(user_email: EmailStr, background_tasks: BackgroundTasks, activity_description: str = "Generic activity logged."): # Updated function
+    confirmation_message = f"Activity logging initiated for {user_email}."
+    background_tasks.add_task(log_batcomputer_activity, user_email, activity=activity_description) # Use updated task
     return {"message": confirmation_message}
 
-@app.post("/generate-report")
-async def generate_report(report_request: ReportRequest, background_tasks: BackgroundTasks):
-    background_tasks.add_task(simulate_report_generation, report_request)
-    return {"message": f"Report '{report_request.report_name}' generation started for {report_request.recipient_email}."}
+@app.post("/request-intel-report") # Updated path
+async def request_intel_report(report_request: IntelReportRequest, background_tasks: BackgroundTasks): # Updated function/model
+    background_tasks.add_task(simulate_intel_report_compilation, report_request) # Use updated task
+    return {"message": f"Intel report '{report_request.report_name}' compilation requested for {report_request.recipient_email}. Alfred is on it."}
 
-@app.get("/users/me")
-async def read_current_user_endpoint(current_user: CurrentUserDep):
+@app.get("/contacts/me") # Updated path
+async def read_current_contact_endpoint(current_user: CurrentUserDep): # Renamed function
     return current_user
 
-# --- HTML Rendering Endpoints ---
+# --- HTML Rendering Endpoints (Updated) ---
 
-@app.get("/home", response_class=HTMLResponse)
-async def read_home(request: Request):
-    acquired_count = sum(1 for stone in known_stones_db.values() if stone.get("acquired"))
-    status_text = "All stones acquired!" if acquired_count == 6 else f"Seeking {6 - acquired_count} more stones..."
-    status_info = {"status": status_text, "stones_acquired": acquired_count}
+@app.get("/batcave-display", response_class=HTMLResponse) # Updated path
+async def read_batcave_display(request: Request): # Renamed function
+    stock_count = sum(1 for g in gadget_inventory_db.values() if g.get("in_stock")) # Use updated DB
+    total_gadgets = len(gadget_inventory_db) # Use updated DB
+    status_info = {"status": f"{stock_count}/{total_gadgets} gadget types in stock.", "gadgets_in_stock": stock_count}
     context = {
         "request": request,
-        "page_title": "Knowhere Hub",
-        "heading": "Welcome to the Collector's Archive!",
+        "page_title": "Batcave Main Display", # Thematic
+        "heading": "Welcome to the Batcave", # Thematic
         "status_data": status_info,
-        "stones": known_stones_db
+        "gadgets": gadget_inventory_db # Use updated DB
     }
     # Ensure template file exists before trying to render
     if not os.path.exists("templates/index.html"):
         raise HTTPException(status_code=500, detail="Template 'index.html' not found.")
     return templates.TemplateResponse("index.html", context)
 
-@app.get("/characters-view", response_class=HTMLResponse)
-async def view_characters(request: Request):
+@app.get("/contacts-view", response_class=HTMLResponse) # Updated path
+async def view_contacts(request: Request): # Renamed function
     context = {
         "request": request,
-        "page_title": "Character Database",
-        "heading": "Registered Characters",
-        "characters": characters_db
+        "page_title": "Contact Database", # Thematic
+        "heading": "Registered Contacts", # Thematic
+        "contacts": contacts_db # Use updated DB
     }
-    if not characters_db:
-        print("Warning: characters_db is empty. POST to /characters to add data.")
+    if not contacts_db: # Use updated DB
+        print("Warning: contacts_db is empty. POST to /contacts to add data.")
     # Ensure template file exists
-    if not os.path.exists("templates/character_list.html"):
-         raise HTTPException(status_code=500, detail="Template 'character_list.html' not found.")
-    return templates.TemplateResponse("character_list.html", context)
+    if not os.path.exists("templates/contacts_list.html"): # Use updated template name
+         raise HTTPException(status_code=500, detail="Template 'contacts_list.html' not found.")
+    return templates.TemplateResponse("contacts_list.html", context) # Use updated template name
 
 
 # To run this application:
 # 1. Make sure you are in the 'lesson_09' directory
 # 2. Activate virtual environment (e.g., `source ../lesson_01/venv/bin/activate`)
-# 3. Install dependencies: `pip install "fastapi[all]"` `pip install httpx Jinja2`
+# 3. Install dependencies: `pip install "fastapi[all]"` `pip install httpx Jinja2 email-validator`
 # 4. Ensure 'static' and 'templates' directories exist and contain the necessary files
-#    (style.css, index.html, character_list.html - copy from lesson_08 if needed).
+#    (style.css, index.html, contacts_list.html - copy from lesson_08 if needed).
 # 5. Run: `uvicorn main:app --reload`
 # 6. Test endpoints via http://127.0.0.1:8000/docs
 #    - Check response headers for X-Process-Time and X-API-Version.
 #    - Test CORS by trying to fetch from a simple local HTML file (using fetch API)
 #      if you have `origins` configured correctly (e.g., including "null" or "*").
+# 7. Test HTML pages: /batcave-display, /contacts-view

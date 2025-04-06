@@ -1,4 +1,4 @@
-# Lesson 3: The Aether - Shaping Reality with Query Parameters & External APIs
+# Lesson 3: Detective Mode - Querying Data & External Intel
 # Complete code including Homework and Stretch Goal
 
 from fastapi import FastAPI
@@ -10,69 +10,69 @@ app = FastAPI()
 
 @app.get("/")
 async def read_root():
-    return {"message": "Hello, Universe!"}
+    return {"message": "Hello, Gotham!"}
 
 @app.get("/status")
 async def get_status():
-    return {"status": "Seeking Stones"}
+    return {"status": "Protecting Gotham"}
 
-@app.get("/planets/{planet_name}")
-async def scan_planet(planet_name: str):
-    return {"message": f"Scanning planet: {planet_name.capitalize()}"}
+@app.get("/locations/{location_name}")
+async def scan_location(location_name: str):
+    return {"message": f"Scanning location: {location_name.title()}"}
 
-@app.get("/stones/{stone_id}")
-async def locate_stone(stone_id: int):
-    return {"stone_id": stone_id, "status": "Located"}
+@app.get("/gadgets/{gadget_id}")
+async def get_gadget(gadget_id: int):
+    return {"gadget_id": gadget_id, "status": "Available"}
 
-@app.get("/alliances/{ally_name}/members/{member_id}")
-async def get_alliance_member(ally_name: str, member_id: int):
+@app.get("/rogues/{rogue_name}/cases/{case_id}")
+async def get_rogue_case(rogue_name: str, case_id: int):
     return {
-        "alliance": ally_name,
-        "member_id": member_id,
-        "status": "Found in alliance records"
+        "rogue": rogue_name.title(),
+        "case_id": case_id,
+        "status": "Case file found"
         }
 
 # --- New Endpoints for Lesson 3 ---
 
 # Endpoint with optional query parameters and default values
-@app.get("/search")
-async def search_reality(
-    term: str | None = None, # Optional query parameter
+@app.get("/search-database") # More thematic path
+async def search_gotham_database( # More thematic function name
+    keyword: str | None = None, # Optional query parameter 'keyword'
     limit: int = 10 # Optional query parameter with a default value
     ):
     """
-    Searches based on an optional term and limit.
+    Searches the Batcomputer database based on an optional keyword and limit.
     Demonstrates optional query parameters and defaults.
     """
-    if term:
-        return {"searching_for": term, "results_limit": limit}
+    if keyword:
+        return {"searching_for_keyword": keyword, "results_limit": limit}
     else:
-        return {"message": "Provide a 'term' query parameter to search.", "results_limit": limit}
+        return {"message": "Provide a 'keyword' query parameter to search the database.", "results_limit": limit}
 
 # Endpoint combining path and query parameters
-@app.get("/planets/{planet_name}/info")
-async def get_planet_info(
-    planet_name: str, # Path parameter
-    min_power: int = 0 # Query parameter with default
+@app.get("/locations/{location_name}/details") # Changed path slightly
+async def get_location_details( # Changed function name
+    location_name: str, # Path parameter
+    min_threat_level: int = 0 # Query parameter with default, renamed for theme
     ):
     """
-    Gets hypothetical info for a planet, filterable by minimum power level.
+    Gets hypothetical details for a Gotham location, filterable by minimum threat level.
     Demonstrates combining path and query parameters.
     """
     return {
-        "planet": planet_name.capitalize(),
-        "filter_min_power": min_power,
-        "data": f"Details about {planet_name.capitalize()} with power > {min_power} would go here."
+        "location": location_name.title(),
+        "filter_min_threat": min_threat_level,
+        "data": f"Intel report for {location_name.title()} with threat level > {min_threat_level} would go here."
         }
 
-# Endpoint fetching data from JSONPlaceholder (includes Stretch Goal)
-@app.get("/fetch-posts")
+# Endpoint fetching data from JSONPlaceholder (External Intel - includes Stretch Goal)
+@app.get("/fetch-posts") # Keeping path generic as it's external
 async def fetch_external_posts(
     limit: int = 5, # Query param for our API
     user_id: int | None = None # Stretch Goal: Query param for our API
     ):
     """
-    Fetches posts from the JSONPlaceholder API (https://jsonplaceholder.typicode.com/posts).
+    Fetches generic posts from the JSONPlaceholder API (simulating external intel).
     Allows specifying a limit and optionally filtering by user_id via query parameters.
     Demonstrates calling external APIs with httpx and basic error handling.
     """
@@ -91,72 +91,72 @@ async def fetch_external_posts(
             external_data = response.json()
             
             return {
-                "message": f"Successfully fetched {len(external_data)} posts from JSONPlaceholder",
-                "source": "JSONPlaceholder API",
+                "message": f"Successfully fetched {len(external_data)} intel reports (posts) from external source",
+                "source": "JSONPlaceholder API (Simulated Intel Feed)",
                 "filter_params_sent": params,
-                "posts": external_data
+                "reports": external_data # Renamed 'posts' to 'reports' for theme
             }
         except httpx.RequestError as exc:
             print(f"An error occurred while requesting {exc.request.url!r}: {exc}")
             # In a real app, you'd likely return an HTTPException here
-            return {"error": "Failed to fetch data from external source", "details": str(exc)}
+            return {"error": "Failed to fetch intel from external source", "details": str(exc)}
         except httpx.HTTPStatusError as exc:
             print(f"Error response {exc.response.status_code} while requesting {exc.request.url!r}.")
             # Return error info from the external API
             return {
-                "error": f"External API returned status {exc.response.status_code}",
+                "error": f"External intel source returned status {exc.response.status_code}",
                 "external_url": str(exc.request.url),
                 "external_response": exc.response.text # Be careful about exposing external errors directly
                 }
 
 # Homework 1: Endpoint with optional query parameters
-@app.get("/filter_stones")
-async def filter_stones(
-    min_power: int = 0,
-    max_power: int | None = None
+@app.get("/filter-gadgets") # Thematic path
+async def filter_gadgets( # Thematic function name
+    min_utility: int = 0, # Thematic parameter name
+    max_utility: int | None = None # Thematic parameter name
     ):
     """
-    Hypothetically filters stones based on power levels.
+    Hypothetically filters gadgets based on utility levels.
     Demonstrates optional query parameters, one with a default.
     """
     return {
-        "filtering_by": {
-            "min_power": min_power,
-            "max_power": max_power if max_power is not None else "No upper limit"
+        "filtering_gadgets_by": {
+            "min_utility": min_utility,
+            "max_utility": max_utility if max_utility is not None else "No upper limit"
         }
     }
 
-# Homework 2: Endpoint fetching a specific user from JSONPlaceholder
-@app.get("/fetch-users/{user_id}")
-async def fetch_external_user(user_id: int): # Path parameter
+# Homework 2: Endpoint fetching a specific user from JSONPlaceholder (External Contact)
+@app.get("/fetch-contacts/{contact_id}") # Renamed path
+async def fetch_external_contact(contact_id: int): # Renamed function and parameter
     """
-    Fetches a specific user from JSONPlaceholder API (https://jsonplaceholder.typicode.com/users/{user_id}).
+    Fetches a specific contact from JSONPlaceholder API (simulating an external contact database).
     Demonstrates using path parameters to construct external API URLs.
     """
-    external_api_url = f"https://jsonplaceholder.typicode.com/users/{user_id}"
+    external_api_url = f"https://jsonplaceholder.typicode.com/users/{contact_id}" # Use contact_id
 
     async with httpx.AsyncClient() as client:
         try:
             print(f"Requesting {external_api_url}")
             response = await client.get(external_api_url)
             response.raise_for_status() # Important for catching 404s from the external API!
-            user_data = response.json()
+            contact_data = response.json() # Renamed variable
 
             return {
-                "message": f"Successfully fetched user {user_id}",
-                "source": "JSONPlaceholder API",
-                "user_data": user_data
+                "message": f"Successfully fetched contact {contact_id}",
+                "source": "JSONPlaceholder API (Simulated Contact DB)",
+                "contact_data": contact_data # Renamed key
             }
         except httpx.RequestError as exc:
             print(f"An error occurred while requesting {exc.request.url!r}: {exc}")
-            return {"error": "Failed to fetch user data from external source", "details": str(exc)}
+            return {"error": "Failed to fetch contact data from external source", "details": str(exc)}
         except httpx.HTTPStatusError as exc:
-            # This will catch the 404 if the user_id doesn't exist on JSONPlaceholder
+            # This will catch the 404 if the contact_id doesn't exist on JSONPlaceholder
             print(f"Error response {exc.response.status_code} while requesting {exc.request.url!r}.")
             return {
-                "error": f"External API returned status {exc.response.status_code} (User likely not found)",
+                "error": f"External API returned status {exc.response.status_code} (Contact likely not found)",
                 "external_url": str(exc.request.url),
-                "user_id_requested": user_id
+                "contact_id_requested": contact_id # Renamed key
                 }
 
 
@@ -166,10 +166,10 @@ async def fetch_external_user(user_id: int): # Path parameter
 # 3. Install httpx: `pip install httpx`
 # 4. Run: `uvicorn main:app --reload`
 # 5. Test endpoints using http://127.0.0.1:8000/docs
-#    - /search?term=Reality&limit=3
-#    - /planets/Titan/info?min_power=100
+#    - /search-database?keyword=Joker&limit=3
+#    - /locations/Arkham%20Asylum/details?min_threat_level=5
 #    - /fetch-posts?limit=2
 #    - /fetch-posts?user_id=1&limit=3 (Stretch Goal test)
-#    - /filter_stones?min_power=50&max_power=500
-#    - /fetch-users/1
-#    - /fetch-users/999 (Test external 404 handling)
+#    - /filter-gadgets?min_utility=50&max_utility=100
+#    - /fetch-contacts/1
+#    - /fetch-contacts/999 (Test external 404 handling)

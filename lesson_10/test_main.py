@@ -6,7 +6,7 @@ import pytest # pytest is automatically used when running 'pytest' command
 
 # Import the 'app' instance from your main application file (main.py)
 # Ensure main.py is in the same directory or accessible via Python path.
-from main import app, characters_db # Import app and potentially the db for cleanup
+from main import app, contacts_db # Import app and the contacts_db for cleanup
 
 # Create a TestClient instance using your FastAPI app
 # This client will simulate HTTP requests to your app without needing a running server.
@@ -19,108 +19,111 @@ def test_read_root():
     """ Tests the root endpoint ('/') for status code and response content. """
     response = client.get("/")
     assert response.status_code == 200
-    # Check the specific message from Lesson 10's main.py
-    assert response.json() == {"message": "Welcome to the FastAPI Gauntlet API. Try /home for HTML view or /docs for API docs."}
+    # Check the specific message from the updated main.py
+    assert response.json() == {"message": "Welcome to the Batcomputer API Interface. Try /batcave-display for HTML view or /docs for API docs."}
 
-def test_locate_stone_success():
-    """ Tests successfully retrieving an existing stone (ID 1). """
-    stone_id = 1 # Known existing stone ID from known_stones_db
-    response = client.get(f"/stones/{stone_id}")
+def test_get_gadget_details_success(): # Renamed function
+    """ Tests successfully retrieving an existing gadget (ID 1). """
+    gadget_id = 1 # Known existing gadget ID from gadget_inventory_db
+    response = client.get(f"/gadgets/{gadget_id}") # Updated path
     assert response.status_code == 200
     response_data = response.json()
-    assert response_data["stone_id"] == stone_id
-    assert response_data["status"] == "Located"
+    assert response_data["gadget_id"] == gadget_id
+    assert response_data["status"] == "Located in inventory" # Updated status message
     assert "details" in response_data
-    assert response_data["details"]["name"] == "Space" # Verify specific data
+    assert response_data["details"]["name"] == "Batarang" # Verify specific gadget data
 
-def test_locate_stone_not_found():
-    """ Tests requesting a stone ID that does not exist (expect 404). """
-    stone_id = 999 # Non-existent ID
-    response = client.get(f"/stones/{stone_id}")
+def test_get_gadget_details_not_found(): # Renamed function
+    """ Tests requesting a gadget ID that does not exist (expect 404). """
+    gadget_id = 999 # Non-existent ID
+    response = client.get(f"/gadgets/{gadget_id}") # Updated path
     assert response.status_code == 404 # Check for Not Found status
     assert "detail" in response.json() # FastAPI error responses have 'detail'
-    assert str(stone_id) in response.json()["detail"] # Check if detail mentions the ID
+    assert str(gadget_id) in response.json()["detail"] # Check if detail mentions the ID
+    assert "Gadget" in response.json()["detail"] # Check for thematic error message
 
-# --- Tests for Character Creation ---
+# --- Tests for Contact Creation ---
 
-# Helper to ensure clean state for character tests if needed
-def clear_character_db_via_api():
+# Helper to ensure clean state for contact tests if needed
+def clear_contacts_db_via_api(): # Renamed helper
      # It's often better to use pytest fixtures for setup/teardown,
      # but calling an endpoint is simpler for this example.
-     delete_response = client.delete("/characters")
+     delete_response = client.delete("/contacts") # Updated path
      assert delete_response.status_code == 204 # No Content
 
-def test_create_character_success():
-    """ Tests successfully creating a new character via POST. """
-    clear_character_db_via_api() # Start with a clean slate
-    character_data = {"name": "Nebula", "affiliation": "Guardians?", "power_level": 750}
-    response = client.post("/characters", json=character_data)
+def test_create_contact_success(): # Renamed function
+    """ Tests successfully creating a new contact via POST. """
+    clear_contacts_db_via_api() # Start with a clean slate
+    contact_data = {"name": "Alfred Pennyworth", "affiliation": "Wayne Enterprises", "trust_level": 5} # Updated data structure
+    response = client.post("/contacts", json=contact_data) # Updated path
     assert response.status_code == 201 # Check for Created status
     response_data = response.json()
-    assert response_data["name"] == character_data["name"]
-    assert response_data["affiliation"] == character_data["affiliation"]
-    assert response_data["power_level"] == character_data["power_level"]
+    assert response_data["name"] == contact_data["name"]
+    assert response_data["affiliation"] == contact_data["affiliation"]
+    assert response_data["trust_level"] == contact_data["trust_level"] # Check updated field
     assert "id" in response_data # Check if an ID was assigned (should be 1 after clearing)
     assert response_data["id"] == 1
 
-def test_create_character_duplicate():
-    """ Tests trying to create a character with a name that already exists (expect 400). """
-    clear_character_db_via_api()
-    # First, create a character
-    client.post("/characters", json={"name": "Gamora", "affiliation": "Guardians", "power_level": 800})
+def test_create_contact_duplicate(): # Renamed function
+    """ Tests trying to create a contact with a name that already exists (expect 400). """
+    clear_contacts_db_via_api()
+    # First, create a contact
+    client.post("/contacts", json={"name": "James Gordon", "affiliation": "GCPD", "trust_level": 5}) # Updated path and data
 
     # Now, try to create another with the same name (case-insensitive check in main.py)
-    duplicate_data = {"name": "gamora", "power_level": 801}
-    response = client.post("/characters", json=duplicate_data)
+    duplicate_data = {"name": "james gordon", "trust_level": 4} # Updated data
+    response = client.post("/contacts", json=duplicate_data) # Updated path
     assert response.status_code == 400 # Check for Bad Request status
     assert "already exists" in response.json()["detail"]
+    assert "Contact" in response.json()["detail"] # Check for thematic error message
 
-# --- Homework Test 1 ---
-def test_create_stone_duplicate():
-    """ Tests POST /stones returns 400 if stone name exists in known_stones_db. """
-    # Try to create a stone with a name that's already in the fixed known_stones_db
-    duplicate_stone_data = {"name": "Time", "description": "Another Time stone?", "acquired": False}
-    response = client.post("/stones", json=duplicate_stone_data)
+# --- Homework Test 1 (Updated for Gadgets) ---
+def test_create_gadget_duplicate(): # Renamed function
+    """ Tests POST /gadgets returns 400 if gadget name exists in gadget_inventory_db. """
+    # Try to create a gadget spec with a name that's already in the fixed gadget_inventory_db
+    duplicate_gadget_data = {"name": "Batarang", "description": "Another one?", "in_stock": False} # Updated data
+    response = client.post("/gadgets", json=duplicate_gadget_data) # Updated path
     assert response.status_code == 400
     assert "already exists" in response.json()["detail"]
-    assert "'Time'" in response.json()["detail"] # Check if name is mentioned
+    assert "'Batarang'" in response.json()["detail"] # Check if name is mentioned
+    assert "Gadget" in response.json()["detail"] # Check for thematic error message
 
 # --- Tests for HTML Pages ---
 
-def test_home_page_loads():
-    """ Tests if the HTML home page loads correctly and contains expected text. """
-    response = client.get("/home")
+def test_batcave_display_loads(): # Renamed function
+    """ Tests if the HTML Batcave display page loads correctly and contains expected text. """
+    response = client.get("/batcave-display") # Updated path
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"] # Check content type
     # Check for text content that should be rendered by Jinja2
-    assert "Knowhere Hub" in response.text
-    assert "Welcome to the Collector's Archive!" in response.text
-    assert "Known Stones:" in response.text
-    assert "Space" in response.text # Check if stone data is rendered
+    assert "Batcave Main Display" in response.text # Updated title
+    assert "Welcome to the Batcave" in response.text # Updated heading
+    assert "Gadget Inventory:" in response.text # Updated section
+    assert "Batarang" in response.text # Check if gadget data is rendered
 
-# --- Homework Test 2 ---
-def test_character_view_page():
-    """ Tests the GET /characters-view HTML page. """
-    clear_character_db_via_api()
-    # Add a character so the list isn't empty
-    char_name = "Rocket"
-    client.post("/characters", json={"name": char_name, "affiliation": "Guardians"})
+# --- Homework Test 2 (Updated for Contacts) ---
+def test_contacts_view_page(): # Renamed function
+    """ Tests the GET /contacts-view HTML page. """
+    clear_contacts_db_via_api() # Use updated helper
+    # Add a contact so the list isn't empty
+    contact_name = "Lucius Fox"
+    client.post("/contacts", json={"name": contact_name, "affiliation": "Wayne Enterprises"}) # Updated path and data
 
     # Request the HTML page
-    response = client.get("/characters-view")
+    response = client.get("/contacts-view") # Updated path
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
-    # Check if the character name appears in the rendered HTML
-    assert char_name in response.text
-    assert "Registered Characters" in response.text # Check heading
+    # Check if the contact name appears in the rendered HTML
+    assert contact_name in response.text
+    assert "Registered Contacts" in response.text # Check updated heading
 
-def test_character_view_page_empty():
-    """ Tests the GET /characters-view page when no characters exist. """
-    clear_character_db_via_api() # Ensure DB is empty
-    response = client.get("/characters-view")
+def test_contacts_view_page_empty(): # Renamed function
+    """ Tests the GET /contacts-view page when no contacts exist. """
+    clear_contacts_db_via_api() # Ensure DB is empty using updated helper
+    response = client.get("/contacts-view") # Updated path
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
-    assert "No characters found" in response.text # Check the 'else' block message
+    assert "No contacts found" in response.text # Check the updated 'else' block message
 
 # --- Test for Middleware ---
 
@@ -133,28 +136,28 @@ def test_middleware_headers():
     # Check the specific version defined in main.py's app instance
     assert response.headers["x-api-version"] == app.version
 
-# --- Stretch Goal Tests for /secure-data ---
+# --- Stretch Goal Tests for /gcpd-files (Updated Path/Key) ---
 
-def test_secure_data_success():
-    """ Tests /secure-data with the correct API key header. """
-    headers = {"X-API-Key": "fake-secret-key-123"}
-    response = client.get("/secure-data", headers=headers)
+def test_gcpd_files_success(): # Renamed function
+    """ Tests /gcpd-files with the correct API key header. """
+    headers = {"X-API-Key": "gcpd-secret-key-789"} # Use updated key
+    response = client.get("/gcpd-files", headers=headers) # Updated path
     assert response.status_code == 200
-    assert response.json()["message"] == "This is secure data."
-    assert "user_for_fake-secret-key-123" in response.json()["accessed_by"]["user_id"]
+    assert response.json()["message"] == "Access granted to secure GCPD files." # Updated message
+    assert "gcpd_officer_jim" in response.json()["accessed_by"]["user_id"] # Updated user
 
-def test_secure_data_invalid_key():
-    """ Tests /secure-data with an incorrect API key header (expect 403). """
-    headers = {"X-API-Key": "wrong-key"}
-    response = client.get("/secure-data", headers=headers)
+def test_gcpd_files_invalid_key(): # Renamed function
+    """ Tests /gcpd-files with an incorrect API key header (expect 403). """
+    headers = {"X-API-Key": "arkham-key"} # Incorrect key
+    response = client.get("/gcpd-files", headers=headers) # Updated path
     assert response.status_code == 403 # Forbidden
-    assert response.json()["detail"] == "Invalid API Key provided"
+    assert response.json()["detail"] == "Invalid API Key provided (Access Denied)" # Updated message
 
-def test_secure_data_missing_key():
-    """ Tests /secure-data with no API key header (expect 401). """
-    response = client.get("/secure-data") # No headers argument passed
+def test_gcpd_files_missing_key(): # Renamed function
+    """ Tests /gcpd-files with no API key header (expect 401). """
+    response = client.get("/gcpd-files") # Updated path, no headers argument passed
     assert response.status_code == 401 # Unauthorized
-    assert response.json()["detail"] == "X-API-Key header missing"
+    assert response.json()["detail"] == "X-API-Key header missing (Authentication required)" # Updated message
 
 
 # To run these tests:

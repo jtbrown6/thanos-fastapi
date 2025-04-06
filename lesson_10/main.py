@@ -1,4 +1,4 @@
-# Lesson 10: The Infinity Gauntlet - Assembling & Testing Your API
+# Lesson 10: Final Preparations - Assembling & Testing Your Batcomputer API
 # Application Code (Based on Lesson 9 final code)
 
 from fastapi import FastAPI, HTTPException, Depends, Header, BackgroundTasks, Request
@@ -8,14 +8,14 @@ from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 import httpx
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, EmailStr # Import Field, EmailStr
 from typing import Annotated
 import time
 import os
 
 app = FastAPI(
-    title="FastAPI Gauntlet API",
-    description="API for tracking Infinity Stones and related entities.",
+    title="Batcomputer API Interface", # Updated title
+    description="API for managing Batcave resources, contacts, and intel.", # Updated description
     version="1.0.0", # Final Version!
 )
 
@@ -71,34 +71,33 @@ except RuntimeError as e:
     templates = None # Or a mock object
 
 
-# --- Define Pydantic Models ---
-class Stone(BaseModel):
-    name: str
-    description: str | None = None
-    acquired: bool
+# --- Define Pydantic Models (Updated) ---
+class GadgetSpec(BaseModel): # Renamed from Stone
+    name: str = Field(..., description="The name of the gadget.")
+    description: str | None = Field(None, description="Optional description of the gadget.")
+    in_stock: bool = Field(..., description="Whether the gadget is currently available.") # Renamed from acquired
 
-class Character(BaseModel):
-    name: str
-    affiliation: str | None = None
-    power_level: int = 0
+class Contact(BaseModel): # Renamed from Character
+    name: str = Field(..., description="The name of the contact.")
+    affiliation: str | None = Field(None, description="Known affiliation (e.g., GCPD, Wayne Enterprises).")
+    trust_level: int = Field(default=3, ge=1, le=5, description="Assessed trust level (1-5, 5=highest).") # Renamed from power_level
 
-class ReportRequest(BaseModel):
-    recipient_email: str
-    report_name: str
+class IntelReportRequest(BaseModel): # Renamed from ReportRequest
+    recipient_email: EmailStr # Use Pydantic's EmailStr for validation
+    report_name: str = Field(..., description="The name or subject of the intel report.")
 
-# --- Simulate a Database ---
-known_stones_db = {
-    1: {"name": "Space", "location": "Tesseract", "color": "Blue", "acquired": True},
-    2: {"name": "Mind", "location": "Scepter/Vision", "color": "Yellow", "acquired": True},
-    3: {"name": "Reality", "location": "Aether", "color": "Red", "acquired": True},
-    4: {"name": "Power", "location": "Orb/Gauntlet", "color": "Purple", "acquired": True},
-    5: {"name": "Time", "location": "Eye of Agamotto", "color": "Green", "acquired": True},
-    6: {"name": "Soul", "location": "Vormir/Gauntlet", "color": "Orange", "acquired": True}
+# --- Simulate Batcomputer Databases ---
+gadget_inventory_db = { # Renamed from known_stones_db
+    1: {"name": "Batarang", "type": "Standard Issue", "in_stock": True},
+    2: {"name": "Grappling Hook", "type": "Mobility", "in_stock": True},
+    3: {"name": "Smoke Pellet", "type": "Stealth", "in_stock": False},
+    4: {"name": "Remote Hacking Device", "type": "Tech", "in_stock": True},
+    5: {"name": "Explosive Gel", "type": "Demolition", "in_stock": True},
 }
 # WARNING: Global dictionary state makes tests dependent on execution order or requires cleanup.
 # Better approaches exist (e.g., fixtures in pytest), but kept simple for the lesson.
-characters_db = {}
-next_character_id = 1
+contacts_db = {} # Renamed from characters_db
+next_contact_id = 1 # Renamed from next_character_id
 
 # --- Dependencies ---
 async def common_parameters(skip: int = 0, limit: int = 100):
@@ -112,122 +111,125 @@ async def get_api_key(x_api_key: Annotated[str | None, Header(alias="X-API-Key")
 APIKeyDep = Annotated[str, Depends(get_api_key)]
 
 async def verify_key_and_get_user(api_key: APIKeyDep):
-    if api_key != "fake-secret-key-123":
-        raise HTTPException(status_code=403, detail="Invalid API Key provided")
-    return {"user_id": "user_for_" + api_key, "permissions": ["read"]}
+    # Use Batman theme key and user
+    if api_key != "gcpd-secret-key-789":
+        raise HTTPException(status_code=403, detail="Invalid API Key provided (Access Denied)")
+    return {"user_id": "gcpd_officer_jim", "permissions": ["read_cases"]}
 VerifiedUserDep = Annotated[dict, Depends(verify_key_and_get_user)]
 
 async def get_current_user():
-    user_data = {"username": "thanos", "email": "thanos@titan.net", "is_active": True}
+    # Use Batman theme user
+    user_data = {"username": "batman", "email": "bruce@wayne.enterprises", "is_active": True}
     if not user_data["is_active"]:
-         raise HTTPException(status_code=400, detail="Inactive user")
+         raise HTTPException(status_code=400, detail="User account is inactive.")
     return user_data
 CurrentUserDep = Annotated[dict, Depends(get_current_user)]
 
 # --- Background Task Functions ---
 # Note: Background tasks might be hard to test directly without more advanced techniques
 # (e.g., mocking, checking side effects like file creation).
-def write_notification_log(email: str, message: str = ""):
-    log_message = f"Notification for {email}: {message}\n"
-    print(f"--- BACKGROUND TASK (SIMULATED): Writing log: '{log_message.strip()}' ---")
+def log_batcomputer_activity(user_email: str, activity: str = ""): # Renamed
+    log_message = f"User {user_email} activity: {activity}\n"
+    print(f"--- BACKGROUND TASK (SIMULATED): Logging activity: '{log_message.strip()}' ---")
     # In tests, we might not actually sleep or write files unless testing side effects.
 
-def simulate_report_generation(report_request: ReportRequest):
+def simulate_intel_report_compilation(report_request: IntelReportRequest): # Renamed, uses updated model
     email = report_request.recipient_email
     name = report_request.report_name
-    print(f"--- BACKGROUND TASK (SIMULATED): Generating report '{name}' for {email} ---")
+    print(f"--- BACKGROUND TASK (SIMULATED): Compiling intel report '{name}' for {email} ---")
 
 # --- API Endpoints ---
 
 @app.get("/")
 async def read_root():
-    return {"message": "Welcome to the FastAPI Gauntlet API. Try /home for HTML view or /docs for API docs."}
+    return {"message": "Welcome to the Batcomputer API Interface. Try /batcave-display for HTML view or /docs for API docs."} # Updated message
 
-@app.get("/stones/{stone_id}", name="get_stone_details")
-async def locate_stone(stone_id: int):
-    if stone_id not in known_stones_db:
-        raise HTTPException(status_code=404, detail=f"Stone with ID {stone_id} not found.")
-    return {"stone_id": stone_id, "status": "Located", "details": known_stones_db[stone_id]}
+@app.get("/gadgets/{gadget_id}", name="get_gadget_details") # Updated path/name
+async def get_gadget_details(gadget_id: int): # Renamed function
+    if gadget_id not in gadget_inventory_db: # Use updated DB
+        raise HTTPException(status_code=404, detail=f"Gadget with ID {gadget_id} not found in inventory.")
+    return {"gadget_id": gadget_id, "status": "Located in inventory", "details": gadget_inventory_db[gadget_id]} # Use updated DB
 
-@app.post("/characters", status_code=201)
-async def create_character(character: Character):
-    global next_character_id, characters_db # Ensure modification of global
+@app.post("/contacts", status_code=201) # Updated path
+async def create_contact(contact: Contact): # Updated function/model
+    global next_contact_id, contacts_db # Ensure modification of global, use updated names
     # Check for duplicate name (case-insensitive)
-    for char_data in characters_db.values():
-        if char_data["name"].lower() == character.name.lower():
-            raise HTTPException(status_code=400, detail=f"Character named '{character.name}' already exists.")
+    for contact_data in contacts_db.values(): # Use updated DB
+        if contact_data["name"].lower() == contact.name.lower():
+            raise HTTPException(status_code=400, detail=f"Contact named '{contact.name}' already exists.")
     # Assign ID and add to DB
-    new_id = next_character_id
-    characters_db[new_id] = character.model_dump()
-    characters_db[new_id]["id"] = new_id
-    next_character_id += 1
-    print(f"Character added to DB: {characters_db[new_id]}")
-    return characters_db[new_id]
+    new_id = next_contact_id # Use updated global
+    contacts_db[new_id] = contact.model_dump() # Use updated DB
+    contacts_db[new_id]["id"] = new_id
+    next_contact_id += 1 # Use updated global
+    print(f"Contact added to DB: {contacts_db[new_id]}") # Updated log
+    return contacts_db[new_id]
 
-# Endpoint for clearing characters DB (useful for testing)
-@app.delete("/characters", status_code=204)
-async def clear_characters_db():
-    """ Clears the in-memory character database. USE WITH CAUTION (mainly for testing). """
-    global characters_db, next_character_id
-    characters_db = {}
-    next_character_id = 1
-    print("Character DB cleared.")
+# Endpoint for clearing contacts DB (useful for testing)
+@app.delete("/contacts", status_code=204) # Updated path
+async def clear_contacts_db(): # Renamed function
+    """ Clears the in-memory contacts database. USE WITH CAUTION (mainly for testing). """
+    global contacts_db, next_contact_id # Use updated globals
+    contacts_db = {} # Use updated DB
+    next_contact_id = 1 # Use updated global
+    print("Contacts DB cleared.") # Updated log
     return None # No content response
 
-@app.post("/send-notification/{email}")
-async def send_notification(email: str, background_tasks: BackgroundTasks):
-    confirmation_message = f"Notification queued for {email}"
-    background_tasks.add_task(write_notification_log, email, message=confirmation_message)
+@app.post("/log-activity/{user_email}") # Updated path
+async def log_user_activity(user_email: EmailStr, background_tasks: BackgroundTasks, activity_description: str = "Generic activity logged."): # Updated function
+    confirmation_message = f"Activity logging initiated for {user_email}."
+    background_tasks.add_task(log_batcomputer_activity, user_email, activity=activity_description) # Use updated task
     return {"message": confirmation_message}
 
-@app.post("/generate-report")
-async def generate_report(report_request: ReportRequest, background_tasks: BackgroundTasks):
-    background_tasks.add_task(simulate_report_generation, report_request)
-    return {"message": f"Report '{report_request.report_name}' generation started for {report_request.recipient_email}."}
+@app.post("/request-intel-report") # Updated path
+async def request_intel_report(report_request: IntelReportRequest, background_tasks: BackgroundTasks): # Updated function/model
+    background_tasks.add_task(simulate_intel_report_compilation, report_request) # Use updated task
+    return {"message": f"Intel report '{report_request.report_name}' compilation requested for {report_request.recipient_email}. Alfred is on it."}
 
-@app.get("/users/me")
-async def read_current_user_endpoint(current_user: CurrentUserDep):
+@app.get("/contacts/me") # Updated path
+async def read_current_contact_endpoint(current_user: CurrentUserDep): # Renamed function
     return current_user
 
-@app.get("/secure-data")
-async def read_secure_data(current_user: VerifiedUserDep):
-     return {"message": "This is secure data.", "accessed_by": current_user}
+@app.get("/gcpd-files") # Updated path for secure data example
+async def read_gcpd_files(current_user: VerifiedUserDep): # Renamed function
+     return {"message": "Access granted to secure GCPD files.", "accessed_by": current_user} # Updated message
 
-# --- HTML Rendering Endpoints ---
+# --- HTML Rendering Endpoints (Updated) ---
 
-@app.get("/home", response_class=HTMLResponse)
-async def read_home(request: Request):
+@app.get("/batcave-display", response_class=HTMLResponse) # Updated path
+async def read_batcave_display(request: Request): # Renamed function
     if not templates:
          raise HTTPException(status_code=500, detail="Templates not configured.")
-    acquired_count = sum(1 for stone in known_stones_db.values() if stone.get("acquired"))
-    status_text = "All stones acquired!" if acquired_count == 6 else f"Seeking {6 - acquired_count} more stones..."
-    status_info = {"status": status_text, "stones_acquired": acquired_count}
+    stock_count = sum(1 for g in gadget_inventory_db.values() if g.get("in_stock")) # Use updated DB
+    total_gadgets = len(gadget_inventory_db) # Use updated DB
+    status_info = {"status": f"{stock_count}/{total_gadgets} gadget types in stock.", "gadgets_in_stock": stock_count}
     context = {
         "request": request,
-        "page_title": "Knowhere Hub",
-        "heading": "Welcome to the Collector's Archive!",
+        "page_title": "Batcave Main Display", # Thematic
+        "heading": "Welcome to the Batcave", # Thematic
         "status_data": status_info,
-        "stones": known_stones_db
+        "gadgets": gadget_inventory_db # Use updated DB
     }
     if not os.path.exists("templates/index.html"):
         raise HTTPException(status_code=500, detail="Template 'index.html' not found.")
     return templates.TemplateResponse("index.html", context)
 
-@app.get("/characters-view", response_class=HTMLResponse)
-async def view_characters(request: Request):
+@app.get("/contacts-view", response_class=HTMLResponse) # Updated path
+async def view_contacts(request: Request): # Renamed function
     if not templates:
          raise HTTPException(status_code=500, detail="Templates not configured.")
     context = {
         "request": request,
-        "page_title": "Character Database",
-        "heading": "Registered Characters",
-        "characters": characters_db
+        "page_title": "Contact Database", # Thematic
+        "heading": "Registered Contacts", # Thematic
+        "contacts": contacts_db # Use updated DB
     }
-    if not characters_db:
-        print("Warning: characters_db is empty. POST to /characters to add data.")
-    if not os.path.exists("templates/character_list.html"):
-         raise HTTPException(status_code=500, detail="Template 'character_list.html' not found.")
-    return templates.TemplateResponse("character_list.html", context)
+    if not contacts_db: # Use updated DB
+        print("Warning: contacts_db is empty. POST to /contacts to add data.")
+    if not os.path.exists("templates/contacts_list.html"): # Use updated template name
+         raise HTTPException(status_code=500, detail="Template 'contacts_list.html' not found.")
+    return templates.TemplateResponse("contacts_list.html", context) # Use updated template name
 
 # Note: Running this file directly with `python main.py` won't work correctly
-# for ASGI applications like FastAPI. Use `uvicorn main:app --reload`.
+# for ASGI applications like FastAPI. Use `uvicorn lesson_10.main:app --reload` from the parent directory
+# or adjust paths if running from within lesson_10.
